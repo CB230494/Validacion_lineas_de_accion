@@ -41,14 +41,16 @@ class PDFValidacion(FPDF):
         for fila in filas:
             tipo = fila["tipo_cambio"].strip()
             if fila["elemento"] == "Metas":
-                tipo_texto = "Bimestrales ( )   Anuales ( )"
-                if tipo in ["Bimestrales", "Anuales"]:
+                if tipo not in ["Bimestrales", "Anuales"]:
+                    tipo_texto = "Bimestrales ( )   Anuales ( )"
+                else:
                     tipo_texto = f"Bimestrales ({'X' if tipo == 'Bimestrales' else ' '})   Anuales ({'X' if tipo == 'Anuales' else ' '})"
             elif fila["elemento"] == "Líder estratégico":
                 tipo_texto = "Modificación de líder estratégico (X)" if tipo == "Modificación de líder estratégico" else "Modificación de líder estratégico ( )"
             else:
-                tipo_texto = "Total ( )   Parcial ( )"
-                if tipo in ["Total", "Parcial"]:
+                if tipo not in ["Total", "Parcial"]:
+                    tipo_texto = "Total ( )   Parcial ( )"
+                else:
                     tipo_texto = f"Total ({'X' if tipo == 'Total' else ' '})   Parcial ({'X' if tipo == 'Parcial' else ' '})"
             self.cell(70, 8, fila["elemento"], 1)
             self.cell(30, 8, fila["validado"], 1, 0, "C")
@@ -69,7 +71,7 @@ class PDFValidacion(FPDF):
             self.set_font("Arial", "B", 12)
             self.set_y(30)
             self.cell(0, 10, "Archivos adjuntos", ln=True)
-            self.set_y(65)  # Ajustado más arriba
+            self.set_y(65)  # margen ajustado más arriba
             for archivo in imagenes:
                 try:
                     img = Image.open(archivo)
@@ -110,7 +112,7 @@ def generar_pdf_validacion(datos):
     buffer.seek(0)
     return buffer
 
-# ---- STREAMLIT ----
+# ---- FORMULARIO STREAMLIT ----
 st.title("Validación de Líneas de Acción")
 st.subheader("Período 2025-2026")
 
@@ -136,10 +138,12 @@ with st.form("formulario_validacion"):
         st.markdown(f"**{e}**")
         col1, col2 = st.columns(2)
         with col1:
-            validado = st.radio(f"¿Fue validado? - {e}", ["Sí", "No"], key=f"{e}_val")
+            validado_key = f"{e}_val"
+            validado = st.radio(f"¿Fue validado? - {e}", ["Sí", "No"], key=validado_key)
         if validado == "No":
             with col2:
-                tipo = st.selectbox(f"Tipo de cambio - {e}", opciones_tipo[e], key=f"{e}_tipo")
+                tipo_key = f"{e}_tipo"
+                tipo = st.selectbox(f"Tipo de cambio - {e}", opciones_tipo[e], key=tipo_key)
         else:
             tipo = ""
         validaciones.append({
@@ -168,4 +172,3 @@ if submit:
     pdf_buffer = generar_pdf_validacion(datos)
     nombre_archivo = f"Validacion_Lineas_{delegacion.replace(' ', '_')}_{datetime.datetime.now().strftime('%Y%m%d')}.pdf"
     st.download_button("📥 Descargar Informe PDF", data=pdf_buffer, file_name=nombre_archivo, mime="application/pdf")
-
