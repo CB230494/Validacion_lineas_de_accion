@@ -71,7 +71,7 @@ class PDFValidacion(FPDF):
             self.set_font("Arial", "B", 12)
             self.set_y(30)
             self.cell(0, 10, "Archivos adjuntos", ln=True)
-            self.set_y(65)  # margen ajustado más arriba
+            self.set_y(65)  # posición más arriba
             for archivo in imagenes:
                 try:
                     img = Image.open(archivo)
@@ -112,7 +112,7 @@ def generar_pdf_validacion(datos):
     buffer.seek(0)
     return buffer
 
-# ---- FORMULARIO STREAMLIT ----
+# --- FORMULARIO STREAMLIT ---
 st.title("Validación de Líneas de Acción")
 st.subheader("Período 2025-2026")
 
@@ -138,14 +138,9 @@ with st.form("formulario_validacion"):
         st.markdown(f"**{e}**")
         col1, col2 = st.columns(2)
         with col1:
-            validado_key = f"{e}_val"
-            validado = st.radio(f"¿Fue validado? - {e}", ["Sí", "No"], key=validado_key)
-        if validado == "No":
-            with col2:
-                tipo_key = f"{e}_tipo"
-                tipo = st.selectbox(f"Tipo de cambio - {e}", opciones_tipo[e], key=tipo_key)
-        else:
-            tipo = ""
+            validado = st.radio(f"¿Fue validado? - {e}", ["Sí", "No"], key=f"{e}_val")
+        with col2:
+            tipo = st.selectbox(f"Tipo de cambio - {e}", opciones_tipo[e], key=f"{e}_tipo")
         validaciones.append({
             "elemento": e,
             "validado": "SI" if validado == "Sí" else "NO",
@@ -154,7 +149,6 @@ with st.form("formulario_validacion"):
 
     observaciones = st.text_area("Observaciones")
     archivos = st.file_uploader("Subir archivos adjuntos (imágenes o PDF)", type=["jpg", "jpeg", "png", "pdf"], accept_multiple_files=True)
-
     submit = st.form_submit_button("📥 Generar PDF")
 
 if submit:
@@ -172,3 +166,4 @@ if submit:
     pdf_buffer = generar_pdf_validacion(datos)
     nombre_archivo = f"Validacion_Lineas_{delegacion.replace(' ', '_')}_{datetime.datetime.now().strftime('%Y%m%d')}.pdf"
     st.download_button("📥 Descargar Informe PDF", data=pdf_buffer, file_name=nombre_archivo, mime="application/pdf")
+
