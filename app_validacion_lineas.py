@@ -36,7 +36,7 @@ class PDFValidacion(FPDF):
         texto = f"{label}: {content}" if content else f"{label}: "
         self.cell(0, 8, texto[:100], ln=True)
 
-    def add_validation_table_static(self):
+    def add_validation_table_custom(self, filas):
         self.set_font("Arial", "B", 12)
         self.cell(0, 10, "Contenido validado y tipo de modificación", ln=True)
         self.set_font("Arial", "B", 11)
@@ -44,17 +44,17 @@ class PDFValidacion(FPDF):
         self.cell(30, 8, "¿Fue validado?", 1, 0, "C")
         self.cell(90, 8, "Tipo de cambio realizado", 1, 1, "C")
         self.set_font("Arial", "", 11)
-        filas = [
-            ("Línea de acción", "NO", "Total ( )   Parcial ( )"),
-            ("Acción estratégica", "NO", "Total ( )   Parcial ( )"),
-            ("Indicadores", "NO", "Total ( )   Parcial ( )"),
-            ("Metas", "NO", "Bimestrales ( )   Anuales ( )"),
-            ("Líder estratégico", "NO", "Modificación de líder estratégico ( )")
-        ]
         for fila in filas:
-            self.cell(70, 8, fila[0], 1)
-            self.cell(30, 8, fila[1], 1, 0, "C")
-            self.cell(90, 8, fila[2], 1, 1)
+            tipo = fila["tipo_cambio"]
+            if fila["elemento"] == "Metas":
+                tipo_texto = f"Bimestrales ({'X' if tipo == 'Bimestrales' else ' '})   Anuales ({'X' if tipo == 'Anuales' else ' '})"
+            elif fila["elemento"] == "Líder estratégico":
+                tipo_texto = "Modificación de líder estratégico (X)" if tipo == "Modificación de líder estratégico" else "Modificación de líder estratégico ( )"
+            else:
+                tipo_texto = f"Total ({'X' if tipo == 'Total' else ' '})   Parcial ({'X' if tipo == 'Parcial' else ' '})"
+            self.cell(70, 8, fila["elemento"], 1)
+            self.cell(30, 8, fila["validado"], 1, 0, "C")
+            self.cell(90, 8, tipo_texto, 1, 1)
 
     def add_observaciones(self, texto):
         self.set_font("Arial", "B", 12)
@@ -94,13 +94,14 @@ class PDFValidacion(FPDF):
 def generar_pdf_validacion(datos):
     pdf = PDFValidacion()
     pdf.add_page()
-    pdf.add_text_field("Período 2025-2026", datos.get("periodo"))
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "Período 2025-2026", ln=True)  # Subtítulo estático
     pdf.add_text_field("Fecha", datos.get("fecha"))
     pdf.add_text_field("Delegación", datos.get("delegacion"))
     pdf.add_text_field("¿Se emitió un oficio de validación?", datos.get("oficio_emitido"))
     pdf.add_text_field("Número de oficio", datos.get("numero_oficio"))
     pdf.add_text_field("¿Se realizaron modificaciones en las líneas de acción?", datos.get("modificaciones"))
-    pdf.add_validation_table_static()
+    pdf.add_validation_table_custom(datos.get("validaciones", []))
     pdf.add_observaciones(datos.get("observaciones"))
     pdf.add_adjuntos(datos.get("adjuntos", []))
     buffer = BytesIO()
@@ -110,34 +111,58 @@ def generar_pdf_validacion(datos):
 
 # --- FORMULARIO STREAMLIT ---
 st.title("Validación de Líneas de Acción")
+st.subheader("Período 2025-2026")
 
 with st.form("formulario_validacion"):
-    periodo = st.text_input("Período 2025-2026", value="Primer semestre")
     fecha = st.date_input("Fecha")
     delegacion = st.text_input("Delegación")
-    st.markdown("### Oficio de Validación")
     oficio_emitido = st.radio("¿Se emitió un oficio de validación?", ["Sí", "No"])
     numero_oficio = st.text_input("Número de oficio (si aplica)")
-    modificaciones = st.radio("¿Se realizaron modificaciones?", ["Sí", "No"])
+    modificaciones = st.radio("¿Se realizaron modificaciones en las líneas de acción?", ["Sí", "No"])
+
     st.markdown("### Contenido validado y tipo de modificación")
-    st.markdown("*Esta sección se genera automáticamente en el PDF con todos los campos visibles.*")
+    elementos = [
+        "Línea de acción", "Acción estratégica", "Indicadores", "Metas", "Líder estratégico"
+    ]
+    opciones_tipo = {
+        "Línea de acción": ["Total", "Parcial"],
+        "Acción estratégica": ["Total", "Parcial"],
+        "Indicadores": ["Total", "Parcial"],
+        "Metas": ["Bimestrales", "Anuales"],
+        "Líder estratégico": ["Modificación de líder estratégico"]
+    }
+    validaciones = []
+    for e in elementos:
+        st.markdown(f"**{e}**")
+        col1, col2 = st.columns(2)
+        with col1:
+            validado = st.radio(f"¿Fue validado? - {e}", ["Sí", "No"], key=f"{e}_val")
+        with col2:
+            tipo = st.selectbox(f"Tipo de cambio - {e}", opciones_tipo[e], key=f"{e}_tipo")
+        validaciones.append({
+            "elemento": e,
+            "validado": "SI" if validado == "Sí" else "NO",
+            "tipo_cambio": tipo
+        })
+
     observaciones = st.text_area("Observaciones")
     archivos = st.file_uploader("Subir archivos adjuntos (imágenes o PDF)", type=["jpg", "jpeg", "png", "pdf"], accept_multiple_files=True)
     submit = st.form_submit_button("📥 Generar PDF")
 
 if submit:
     datos = {
-        "periodo": periodo,
         "fecha": fecha.strftime("%d/%m/%Y"),
         "delegacion": delegacion,
         "oficio_emitido": oficio_emitido,
         "numero_oficio": numero_oficio,
         "modificaciones": modificaciones,
+        "validaciones": validaciones,
         "observaciones": observaciones,
         "adjuntos": archivos
     }
 
     pdf_buffer = generar_pdf_validacion(datos)
     nombre_archivo = f"Validacion_Lineas_{delegacion.replace(' ', '_')}_{datetime.datetime.now().strftime('%Y%m%d')}.pdf"
-    st.download_button("Descargar Informe PDF", data=pdf_buffer, file_name=nombre_archivo, mime="application/pdf")
+    st.download_button("📥 Descargar Informe PDF", data=pdf_buffer, file_name=nombre_archivo, mime="application/pdf")
+
 
