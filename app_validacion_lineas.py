@@ -2,26 +2,15 @@ import streamlit as st
 from fpdf import FPDF
 from io import BytesIO
 import datetime
-import unicodedata
-import re
 
 st.set_page_config(page_title="Validación de Líneas de Acción", layout="centered")
 
-# === FUNCIÓN PARA LIMPIAR TEXTO ===
-def limpiar_texto(texto):
-    if not texto:
-        return ""
-    if not isinstance(texto, str):
-        texto = str(texto)
-    texto = unicodedata.normalize("NFKD", texto)
-    texto = texto.replace('\r\n', ' ').replace('\n', ' ').replace('\r', ' ')
-    texto = re.sub(r'[^\x00-\x7F]+', '', texto)  # Elimina caracteres no ASCII
-    return texto.strip()
-
-# === CLASE PDF SEGURA ===
 class PDFValidacion(FPDF):
     def header(self):
-        self.image('logo.png', 10, 8, 22)
+        try:
+            self.image('logo.png', 10, 8, 22)
+        except:
+            pass  # evita error si no encuentra el logo
         self.set_font('Helvetica', 'B', 12)
         self.set_text_color(0, 0, 0)
         self.cell(0, 5, 'Estrategia Sembremos Seguridad', ln=True, align='C')
@@ -40,15 +29,19 @@ class PDFValidacion(FPDF):
         self.set_font('Helvetica', 'B', 12)
         self.set_text_color(0, 0, 0)
         self.ln(10)
-        self.cell(0, 10, limpiar_texto(title), ln=True)
+        self.cell(0, 10, str(title), ln=True)
 
     def add_text_field(self, label, content):
         self.set_font('Helvetica', '', 11)
         try:
-            texto = limpiar_texto(f"{label}: {content}")
+            if not self.page_no():
+                self.add_page()
+            texto = f"{label}: {str(content) if content else ''}"
+            texto = texto.encode('latin-1', 'replace').decode('latin-1')
+            texto = texto.replace('\r', ' ').replace('\n', ' ')
             self.multi_cell(0, 8, texto)
         except Exception:
-            self.multi_cell(0, 8, "ERROR: contenido inválido.")
+            self.multi_cell(0, 8, f"{label}: [ERROR DE FORMATO]")
 
     def add_checkbox_list(self, title, items):
         self.add_section_title(title)
@@ -65,30 +58,33 @@ class PDFValidacion(FPDF):
         self.ln()
         self.set_font('Helvetica', '', 11)
         for item in items:
-            self.cell(70, 8, limpiar_texto(item['elemento']), border=1)
-            self.cell(30, 8, limpiar_texto(item['validado']), border=1, align='C')
-            self.cell(90, 8, limpiar_texto(item['tipo_cambio']), border=1)
+            self.cell(70, 8, str(item.get('elemento', '')), border=1)
+            self.cell(30, 8, str(item.get('validado', '')), border=1, align='C')
+            self.cell(90, 8, str(item.get('tipo_cambio', '')), border=1)
             self.ln()
 
     def add_observaciones(self, texto):
         self.add_section_title("Observaciones")
         self.set_font('Helvetica', '', 11)
-        self.multi_cell(0, 8, limpiar_texto(texto))
+        try:
+            texto = str(texto).encode('latin-1', 'replace').decode('latin-1')
+            texto = texto.replace('\r', ' ').replace('\n', ' ')
+            self.multi_cell(0, 8, texto)
+        except:
+            self.multi_cell(0, 8, "[ERROR AL MOSTRAR OBSERVACIONES]")
 
-# === FUNCIÓN PARA GENERAR EL PDF ===
 def generar_pdf_validacion(datos):
     pdf = PDFValidacion()
     pdf.add_page()
-    pdf.add_text_field("Período 2025-2026", datos.get("periodo"))
-    pdf.add_text_field("Fecha", datos.get("fecha"))
-    pdf.add_text_field("Delegación", datos.get("delegacion"))
+    pdf.add_text_field("Período 2025-2026", datos.get("periodo", ""))
+    pdf.add_text_field("Fecha", datos.get("fecha", ""))
+    pdf.add_text_field("Delegación", datos.get("delegacion", ""))
     pdf.add_checkbox_list("Participación en el proceso de validación del gobierno local", datos.get("participacion", {}))
-    pdf.add_text_field("¿Se emitió un oficio de validación?", datos.get("oficio_emitido"))
-    pdf.add_text_field("Número de oficio", datos.get("numero_oficio"))
-    pdf.add_text_field("¿Se realizaron modificaciones en las líneas de acción?", datos.get("modificaciones"))
+    pdf.add_text_field("¿Se emitió un oficio de validación?", datos.get("oficio_emitido", ""))
+    pdf.add_text_field("Número de oficio", datos.get("numero_oficio", ""))
+    pdf.add_text_field("¿Se realizaron modificaciones en las líneas de acción?", datos.get("modificaciones", ""))
     pdf.add_validation_table(datos.get("validaciones", []))
-    pdf.add_observaciones(datos.get("observaciones"))
-
+    pdf.add_observaciones(datos.get("observaciones", ""))
     buffer = BytesIO()
     pdf.output(buffer, 'F')
     buffer.seek(0)
@@ -115,15 +111,15 @@ with st.form("formulario_validacion"):
 
     st.markdown("### Contenido validado y tipo de modificación")
     validaciones = []
-    elementos = [
-        "Línea de acción", "Acción estratégica", "Indicadores", "Metas", "Líder estratégico"
-    ]
+    elementos = ["Línea de acción", "Acción estratégica", "Indicadores", "Metas", "Líder estratégico"]
     for e in elementos:
         col1, col2 = st.columns(2)
         with col1:
             validado = st.checkbox(f"{e} validado", key=f"{e}_validado")
         with col2:
-            tipo = st.selectbox(f"Tipo de cambio - {e}", ["Total", "Parcial", "Anuales", "Bimestrales", "Modificación de líder"], key=f"{e}_tipo")
+            tipo = st.selectbox(f"Tipo de cambio - {e}",
+                                ["Total", "Parcial", "Anuales", "Bimestrales", "Modificación de líder"],
+                                key=f"{e}_tipo")
         validaciones.append({
             "elemento": e,
             "validado": "✔" if validado else "✘",
@@ -131,7 +127,6 @@ with st.form("formulario_validacion"):
         })
 
     observaciones = st.text_area("Observaciones")
-
     submit = st.form_submit_button("📥 Generar PDF")
 
 if submit:
@@ -156,3 +151,4 @@ if submit:
         file_name=nombre_archivo,
         mime="application/pdf"
     )
+
