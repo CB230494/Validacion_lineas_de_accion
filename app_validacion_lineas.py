@@ -51,12 +51,13 @@ class PDFValidacion(FPDF):
         for item in items:
             elemento = item.get("elemento", "")
             validado = "SI" if item.get("validado") == "✔" else "NO"
+            tipo = item.get("tipo_cambio", "")
             if "Metas" in elemento:
-                cambio = "Bimestrales ( )   Anuales ( )"
+                cambio = f"Bimestrales ({'X' if tipo == 'Bimestrales' else ' '})   Anuales ({'X' if tipo == 'Anuales' else ' '})"
             elif "Lider" in elemento or "Líder" in elemento:
-                cambio = "Modificación de líder estratégico ( )"
+                cambio = "Modificación de líder estratégico (X)" if tipo == "Modificación de líder estratégico" else "Modificación de líder estratégico ( )"
             else:
-                cambio = "Total ( )   Parcial ( )"
+                cambio = f"Total ({'X' if tipo == 'Total' else ' '})   Parcial ({'X' if tipo == 'Parcial' else ' '})"
             self.cell(70, 8, elemento[:40], 1)
             self.cell(30, 8, validado, 1, 0, "C")
             self.cell(90, 8, cambio, 1, 1)
@@ -130,15 +131,19 @@ with st.form("formulario_validacion"):
 
     st.markdown("### Contenido validado y tipo de modificación")
     validaciones = []
-    elementos = ["Línea de acción", "Acción estratégica", "Indicadores", "Metas", "Lider estratégico"]
-    for e in elementos:
+    opciones_tipo = {
+        "Línea de acción": ["Total", "Parcial"],
+        "Acción estratégica": ["Total", "Parcial"],
+        "Indicadores": ["Total", "Parcial"],
+        "Metas": ["Bimestrales", "Anuales"],
+        "Lider estratégico": ["Modificación de líder estratégico"]
+    }
+    for e in opciones_tipo:
         col1, col2 = st.columns(2)
         with col1:
             validado = st.checkbox(f"{e} validado", key=f"{e}_validado")
         with col2:
-            tipo = st.selectbox(f"Tipo de cambio - {e}",
-                                ["Total", "Parcial", "Anuales", "Bimestrales", "Modificación de líder"],
-                                key=f"{e}_tipo")
+            tipo = st.selectbox(f"Tipo de cambio - {e}", opciones_tipo[e], key=f"{e}_tipo")
         validaciones.append({
             "elemento": e,
             "validado": "✔" if validado else "✘",
