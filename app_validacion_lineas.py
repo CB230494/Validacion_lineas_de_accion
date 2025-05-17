@@ -1,9 +1,10 @@
 import streamlit as st
 from fpdf import FPDF
 from io import BytesIO
+from PIL import Image
 import datetime
 
-st.set_page_config(page_title="Validacion de Lineas de Accion", layout="centered")
+st.set_page_config(page_title="Validación de Líneas de Acción", layout="centered")
 
 class PDFValidacion(FPDF):
     def header(self):
@@ -14,19 +15,20 @@ class PDFValidacion(FPDF):
         self.set_font("Arial", "B", 12)
         self.set_text_color(0, 0, 0)
         self.cell(0, 6, "Estrategia Sembremos Seguridad", ln=True, align="C")
-        self.cell(0, 8, "Informe de Validacion de Lineas de Accion", ln=True, align="C")
+        self.cell(0, 8, "Informe de Validación de Líneas de Acción", ln=True, align="C")
         self.ln(8)
         self.line(10, self.get_y(), 200, self.get_y())
 
     def footer(self):
         self.set_y(-20)
         self.set_font("Arial", "I", 10)
-        self.cell(0, 10, f"Pagina {self.page_no()} - Modelo Preventivo de Gestion Policial", align="C")
+        self.set_text_color(0, 0, 0)
+        self.cell(0, 10, f"Página {self.page_no()} - Modelo Preventivo de Gestión Policial - Estrategia Sembremos Seguridad", align="C")
 
     def add_section_title(self, title):
         self.ln(10)
         self.set_font("Arial", "B", 12)
-        self.cell(0, 10, str(title), ln=True)
+        self.cell(0, 10, title, ln=True)
 
     def add_text_field(self, label, content):
         self.set_font("Arial", "", 11)
@@ -40,16 +42,24 @@ class PDFValidacion(FPDF):
             self.add_text_field(label, estado)
 
     def add_validation_table(self, items):
-        self.add_section_title("Contenido Validado y Tipo de Modificacion")
+        self.add_section_title("Contenido validado y tipo de modificación")
         self.set_font("Arial", "B", 11)
-        self.cell(70, 8, "Elemento Validado", 1, 0, "C")
-        self.cell(30, 8, "Validado", 1, 0, "C")
-        self.cell(90, 8, "Tipo de cambio", 1, 1, "C")
+        self.cell(70, 8, "Elemento validado", 1, 0, "C")
+        self.cell(30, 8, "¿Fue validado?", 1, 0, "C")
+        self.cell(90, 8, "Tipo de cambio realizado", 1, 1, "C")
         self.set_font("Arial", "", 11)
         for item in items:
-            self.cell(70, 8, str(item.get("elemento", ""))[:40], 1)
-            self.cell(30, 8, "SI" if item.get("validado") == "✔" else "NO", 1, 0, "C")
-            self.cell(90, 8, str(item.get("tipo_cambio", ""))[:45], 1, 1)
+            elemento = item.get("elemento", "")
+            validado = "SI" if item.get("validado") == "✔" else "NO"
+            if "Metas" in elemento:
+                cambio = "Bimestrales ( )   Anuales ( )"
+            elif "Lider" in elemento or "Líder" in elemento:
+                cambio = "Modificación de líder estratégico ( )"
+            else:
+                cambio = "Total ( )   Parcial ( )"
+            self.cell(70, 8, elemento[:40], 1)
+            self.cell(30, 8, validado, 1, 0, "C")
+            self.cell(90, 8, cambio, 1, 1)
 
     def add_observaciones(self, texto):
         self.add_section_title("Observaciones")
@@ -60,51 +70,75 @@ class PDFValidacion(FPDF):
         else:
             self.cell(0, 8, "Sin observaciones", ln=True)
 
+    def add_adjuntos(self, archivos):
+        if not archivos:
+            return
+        self.add_section_title("Archivos adjuntos")
+        for archivo in archivos:
+            nombre = archivo.name
+            if nombre.lower().endswith((".png", ".jpg", ".jpeg")):
+                try:
+                    img = Image.open(archivo)
+                    w, h = img.size
+                    max_w = 180
+                    ratio = max_w / w
+                    img_height = h * ratio
+                    archivo.seek(0)
+                    self.image(archivo, x=15, w=max_w, h=img_height)
+                    self.ln(10)
+                except Exception:
+                    self.cell(0, 8, f"Imagen no soportada: {nombre}", ln=True)
+            elif nombre.lower().endswith(".pdf"):
+                self.cell(0, 8, f"PDF adjunto: {nombre}", ln=True)
+
 def generar_pdf_validacion(datos):
     pdf = PDFValidacion()
     pdf.add_page()
-    pdf.add_text_field("Periodo 2025-2026", datos.get("periodo"))
+    pdf.add_text_field("Período 2025-2026", datos.get("periodo"))
     pdf.add_text_field("Fecha", datos.get("fecha"))
-    pdf.add_text_field("Delegacion", datos.get("delegacion"))
-    pdf.add_checkbox_list("Participacion en el proceso de validacion del gobierno local", datos.get("participacion", {}))
-    pdf.add_text_field("Oficio de validacion emitido", datos.get("oficio_emitido"))
-    pdf.add_text_field("Numero de oficio", datos.get("numero_oficio"))
-    pdf.add_text_field("Modificaciones realizadas", datos.get("modificaciones"))
+    pdf.add_text_field("Delegación", datos.get("delegacion"))
+    pdf.add_checkbox_list("Participación en el proceso de validación del gobierno local", datos.get("participacion", {}))
+    pdf.add_text_field("¿Se emitió un oficio de validación?", datos.get("oficio_emitido"))
+    pdf.add_text_field("Número de oficio", datos.get("numero_oficio"))
+    pdf.add_text_field("¿Se realizaron modificaciones en las líneas de acción?", datos.get("modificaciones"))
     pdf.add_validation_table(datos.get("validaciones", []))
     pdf.add_observaciones(datos.get("observaciones"))
+    pdf.add_adjuntos(datos.get("adjuntos", []))
     buffer = BytesIO()
     pdf.output(buffer, 'F')
     buffer.seek(0)
     return buffer
 
 # --- FORMULARIO STREAMLIT ---
-st.title("Validacion de Lineas de Accion")
+st.title("Validación de Líneas de Acción")
 
 with st.form("formulario_validacion"):
-    periodo = st.text_input("Periodo 2025-2026", value="Primer semestre")
+    periodo = st.text_input("Período 2025-2026", value="Primer semestre")
     fecha = st.date_input("Fecha")
-    delegacion = st.text_input("Delegacion")
+    delegacion = st.text_input("Delegación")
 
-    st.markdown("### Participacion en el proceso de validacion del gobierno local")
+    st.markdown("### Participación en el proceso de validación del gobierno local")
     participacion = {
         "Alcalde / Alcaldesa": st.checkbox("Alcalde / Alcaldesa"),
         "Vicealcalde / Vicealcaldesa": st.checkbox("Vicealcalde / Vicealcaldesa"),
-        "Mesa de articulacion": st.checkbox("Mesa de articulacion")
+        "Mesa de articulación": st.checkbox("Mesa de articulación")
     }
 
-    oficio_emitido = st.radio("¿Se emitio un oficio de validacion?", ["Si", "No"])
-    numero_oficio = st.text_input("Numero de oficio (si aplica)")
-    modificaciones = st.radio("¿Se realizaron modificaciones?", ["Si", "No"])
+    oficio_emitido = st.radio("¿Se emitió un oficio de validación?", ["Sí", "No"])
+    numero_oficio = st.text_input("Número de oficio (si aplica)")
+    modificaciones = st.radio("¿Se realizaron modificaciones?", ["Sí", "No"])
 
-    st.markdown("### Contenido validado y tipo de modificacion")
+    st.markdown("### Contenido validado y tipo de modificación")
     validaciones = []
-    elementos = ["Linea de accion", "Accion estrategica", "Indicadores", "Metas", "Lider estrategico"]
+    elementos = ["Línea de acción", "Acción estratégica", "Indicadores", "Metas", "Lider estratégico"]
     for e in elementos:
         col1, col2 = st.columns(2)
         with col1:
             validado = st.checkbox(f"{e} validado", key=f"{e}_validado")
         with col2:
-            tipo = st.selectbox(f"Tipo de cambio - {e}", ["Total", "Parcial", "Anuales", "Bimestrales", "Modificacion de lider"], key=f"{e}_tipo")
+            tipo = st.selectbox(f"Tipo de cambio - {e}",
+                                ["Total", "Parcial", "Anuales", "Bimestrales", "Modificación de líder"],
+                                key=f"{e}_tipo")
         validaciones.append({
             "elemento": e,
             "validado": "✔" if validado else "✘",
@@ -112,7 +146,8 @@ with st.form("formulario_validacion"):
         })
 
     observaciones = st.text_area("Observaciones")
-    submit = st.form_submit_button("Generar PDF")
+    archivos = st.file_uploader("Subir archivos adjuntos (imágenes o PDF)", type=["jpg", "jpeg", "png", "pdf"], accept_multiple_files=True)
+    submit = st.form_submit_button("📥 Generar PDF")
 
 if submit:
     datos = {
@@ -124,11 +159,10 @@ if submit:
         "numero_oficio": numero_oficio,
         "modificaciones": modificaciones,
         "validaciones": validaciones,
-        "observaciones": observaciones
+        "observaciones": observaciones,
+        "adjuntos": archivos
     }
 
     pdf_buffer = generar_pdf_validacion(datos)
     nombre_archivo = f"Validacion_Lineas_{delegacion.replace(' ', '_')}_{datetime.datetime.now().strftime('%Y%m%d')}.pdf"
     st.download_button("Descargar Informe PDF", data=pdf_buffer, file_name=nombre_archivo, mime="application/pdf")
-
-
