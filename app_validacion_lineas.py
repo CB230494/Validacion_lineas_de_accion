@@ -41,16 +41,14 @@ class PDFValidacion(FPDF):
         for fila in filas:
             tipo = fila["tipo_cambio"].strip()
             if fila["elemento"] == "Metas":
-                if tipo not in ["Bimestrales", "Anuales"]:
-                    tipo_texto = "Bimestrales ( )   Anuales ( )"
-                else:
+                tipo_texto = "Bimestrales ( )   Anuales ( )"
+                if tipo in ["Bimestrales", "Anuales"]:
                     tipo_texto = f"Bimestrales ({'X' if tipo == 'Bimestrales' else ' '})   Anuales ({'X' if tipo == 'Anuales' else ' '})"
             elif fila["elemento"] == "Líder estratégico":
                 tipo_texto = "Modificación de líder estratégico (X)" if tipo == "Modificación de líder estratégico" else "Modificación de líder estratégico ( )"
             else:
-                if tipo not in ["Total", "Parcial"]:
-                    tipo_texto = "Total ( )   Parcial ( )"
-                else:
+                tipo_texto = "Total ( )   Parcial ( )"
+                if tipo in ["Total", "Parcial"]:
                     tipo_texto = f"Total ({'X' if tipo == 'Total' else ' '})   Parcial ({'X' if tipo == 'Parcial' else ' '})"
             self.cell(70, 8, fila["elemento"], 1)
             self.cell(30, 8, fila["validado"], 1, 0, "C")
@@ -71,8 +69,14 @@ class PDFValidacion(FPDF):
             self.set_font("Arial", "B", 12)
             self.set_y(30)
             self.cell(0, 10, "Archivos adjuntos", ln=True)
-            self.set_y(55)  # posición más arriba
+            self.set_y(55)
+
+            contador = 0
             for archivo in imagenes:
+                if contador == 2:
+                    self.add_page()
+                    self.set_y(55)
+                    contador = 0
                 try:
                     img = Image.open(archivo)
                     w, h = img.size
@@ -83,6 +87,7 @@ class PDFValidacion(FPDF):
                     x_centro = (210 - max_w) / 2
                     self.image(archivo, x=x_centro, y=self.get_y(), w=max_w, h=img_height)
                     self.ln(img_height + 10)
+                    contador += 1
                 except:
                     self.cell(0, 8, f"Imagen no soportada: {archivo.name}", ln=True)
 
@@ -112,7 +117,7 @@ def generar_pdf_validacion(datos):
     buffer.seek(0)
     return buffer
 
-# --- FORMULARIO STREAMLIT ---
+# --- STREAMLIT FORMULARIO ---
 st.title("Validación de Líneas de Acción")
 st.subheader("Período 2025-2026")
 
