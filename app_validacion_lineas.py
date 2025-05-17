@@ -8,7 +8,7 @@ st.set_page_config(page_title="Validación de Líneas de Acción", layout="cente
 # ==== CLASE PDF USANDO fpdf2 ====
 class PDFValidacion(FPDF):
     def header(self):
-        self.image('logo.png', 10, 8, 22)  # Asegúrate de tener logo.png en tu carpeta
+        self.image('logo.png', 10, 8, 22)
         self.set_font('Helvetica', 'B', 12)
         self.set_text_color(0, 0, 0)
         self.cell(0, 5, 'Estrategia Sembremos Seguridad', ln=True, align='C')
@@ -31,7 +31,11 @@ class PDFValidacion(FPDF):
 
     def add_text_field(self, label, content):
         self.set_font('Helvetica', '', 11)
-        self.multi_cell(0, 8, f"{label}: {str(content)}")
+        try:
+            texto = f"{label}: {str(content) if content is not None else ''}"
+            self.multi_cell(0, 8, texto)
+        except Exception:
+            self.multi_cell(0, 8, f"{label}: [ERROR AL MOSTRAR DATO]")
 
     def add_checkbox_list(self, title, items):
         self.add_section_title(title)
@@ -56,21 +60,21 @@ class PDFValidacion(FPDF):
     def add_observaciones(self, texto):
         self.add_section_title("Observaciones")
         self.set_font('Helvetica', '', 11)
-        self.multi_cell(0, 8, str(texto))
+        self.multi_cell(0, 8, str(texto) if texto else "")
 
 # ==== FUNCIÓN PARA GENERAR EL PDF ====
 def generar_pdf_validacion(datos):
     pdf = PDFValidacion()
     pdf.add_page()
-    pdf.add_text_field("Período 2025-2026", datos["periodo"])
-    pdf.add_text_field("Fecha", datos["fecha"])
-    pdf.add_text_field("Delegación", datos["delegacion"])
-    pdf.add_checkbox_list("Participación en el proceso de validación del gobierno local", datos["participacion"])
-    pdf.add_text_field("¿Se emitió un oficio de validación?", datos["oficio_emitido"])
-    pdf.add_text_field("Número de oficio", datos["numero_oficio"])
-    pdf.add_text_field("¿Se realizaron modificaciones en las líneas de acción?", datos["modificaciones"])
-    pdf.add_validation_table(datos["validaciones"])
-    pdf.add_observaciones(datos["observaciones"])
+    pdf.add_text_field("Período 2025-2026", datos.get("periodo"))
+    pdf.add_text_field("Fecha", datos.get("fecha"))
+    pdf.add_text_field("Delegación", datos.get("delegacion"))
+    pdf.add_checkbox_list("Participación en el proceso de validación del gobierno local", datos.get("participacion", {}))
+    pdf.add_text_field("¿Se emitió un oficio de validación?", datos.get("oficio_emitido"))
+    pdf.add_text_field("Número de oficio", datos.get("numero_oficio"))
+    pdf.add_text_field("¿Se realizaron modificaciones en las líneas de acción?", datos.get("modificaciones"))
+    pdf.add_validation_table(datos.get("validaciones", []))
+    pdf.add_observaciones(datos.get("observaciones"))
 
     buffer = BytesIO()
     pdf.output(buffer, 'F')
@@ -139,4 +143,3 @@ if submit:
         file_name=nombre_archivo,
         mime="application/pdf"
     )
-
