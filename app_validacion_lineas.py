@@ -8,17 +8,16 @@ st.set_page_config(page_title="Validación de Líneas de Acción", layout="cente
 
 class PDFValidacion(FPDF):
     def header(self):
-        if self.page_no() == 1:
-            try:
-                self.image("logo.png", 10, 8, 22)
-            except:
-                pass
-            self.set_font("Arial", "B", 12)
-            self.set_text_color(0, 0, 0)
-            self.cell(0, 6, "Estrategia Sembremos Seguridad", ln=True, align="C")
-            self.cell(0, 8, "Informe de Validación de Líneas de Acción", ln=True, align="C")
-            self.ln(8)
-            self.line(10, self.get_y(), 200, self.get_y())
+        try:
+            self.image("logo.png", 10, 8, 22)
+        except:
+            pass
+        self.set_font("Arial", "B", 12)
+        self.set_text_color(0, 0, 0)
+        self.cell(0, 6, "Estrategia Sembremos Seguridad", ln=True, align="C")
+        self.cell(0, 8, "Informe de Validación de Líneas de Acción", ln=True, align="C")
+        self.ln(8)
+        self.line(10, self.get_y(), 200, self.get_y())
 
     def footer(self):
         self.set_y(-20)
@@ -40,13 +39,19 @@ class PDFValidacion(FPDF):
         self.cell(90, 8, "Tipo de cambio realizado", 1, 1, "C")
         self.set_font("Arial", "", 11)
         for fila in filas:
-            tipo = fila["tipo_cambio"]
+            tipo = fila["tipo_cambio"].strip()
             if fila["elemento"] == "Metas":
-                tipo_texto = f"Bimestrales ({'X' if tipo == 'Bimestrales' else ' '})   Anuales ({'X' if tipo == 'Anuales' else ' '})"
+                if tipo not in ["Bimestrales", "Anuales"]:
+                    tipo_texto = "Bimestrales ( )   Anuales ( )"
+                else:
+                    tipo_texto = f"Bimestrales ({'X' if tipo == 'Bimestrales' else ' '})   Anuales ({'X' if tipo == 'Anuales' else ' '})"
             elif fila["elemento"] == "Líder estratégico":
                 tipo_texto = "Modificación de líder estratégico (X)" if tipo == "Modificación de líder estratégico" else "Modificación de líder estratégico ( )"
             else:
-                tipo_texto = f"Total ({'X' if tipo == 'Total' else ' '})   Parcial ({'X' if tipo == 'Parcial' else ' '})"
+                if tipo not in ["Total", "Parcial"]:
+                    tipo_texto = "Total ( )   Parcial ( )"
+                else:
+                    tipo_texto = f"Total ({'X' if tipo == 'Total' else ' '})   Parcial ({'X' if tipo == 'Parcial' else ' '})"
             self.cell(70, 8, fila["elemento"], 1)
             self.cell(30, 8, fila["validado"], 1, 0, "C")
             self.cell(90, 8, tipo_texto, 1, 1)
@@ -70,7 +75,7 @@ class PDFValidacion(FPDF):
             self.set_font("Arial", "B", 12)
             self.set_y(30)
             self.cell(0, 10, "Archivos adjuntos", ln=True)
-            self.set_y(90)  # margen amplio
+            self.set_y(90)
             for archivo in imagenes:
                 try:
                     img = Image.open(archivo)
@@ -82,7 +87,7 @@ class PDFValidacion(FPDF):
                     x_centro = (210 - max_w) / 2
                     self.image(archivo, x=x_centro, y=self.get_y(), w=max_w, h=img_height)
                     self.ln(img_height + 10)
-                except Exception:
+                except:
                     self.cell(0, 8, f"Imagen no soportada: {archivo.name}", ln=True)
 
         if pdfs:
@@ -111,7 +116,7 @@ def generar_pdf_validacion(datos):
     buffer.seek(0)
     return buffer
 
-# --- STREAMLIT FORMULARIO ---
+# STREAMLIT FORM
 st.title("Validación de Líneas de Acción")
 st.subheader("Período 2025-2026")
 
@@ -127,11 +132,11 @@ with st.form("formulario_validacion"):
         "Línea de acción", "Acción estratégica", "Indicadores", "Metas", "Líder estratégico"
     ]
     opciones_tipo = {
-        "Línea de acción": ["Total", "Parcial"],
-        "Acción estratégica": ["Total", "Parcial"],
-        "Indicadores": ["Total", "Parcial"],
-        "Metas": ["Bimestrales", "Anuales"],
-        "Líder estratégico": ["Modificación de líder estratégico"]
+        "Línea de acción": ["", "Total", "Parcial"],
+        "Acción estratégica": ["", "Total", "Parcial"],
+        "Indicadores": ["", "Total", "Parcial"],
+        "Metas": ["", "Bimestrales", "Anuales"],
+        "Líder estratégico": ["", "Modificación de líder estratégico"]
     }
     validaciones = []
     for e in elementos:
@@ -166,4 +171,3 @@ if submit:
     pdf_buffer = generar_pdf_validacion(datos)
     nombre_archivo = f"Validacion_Lineas_{delegacion.replace(' ', '_')}_{datetime.datetime.now().strftime('%Y%m%d')}.pdf"
     st.download_button("📥 Descargar Informe PDF", data=pdf_buffer, file_name=nombre_archivo, mime="application/pdf")
-
