@@ -8,28 +8,23 @@ st.set_page_config(page_title="Validación de Líneas de Acción", layout="cente
 
 class PDFValidacion(FPDF):
     def header(self):
-        try:
-            self.image("logo.png", 10, 8, 22)
-        except:
-            pass
-        self.set_font("Arial", "B", 12)
-        self.set_text_color(0, 0, 0)
-        self.cell(0, 6, "Estrategia Sembremos Seguridad", ln=True, align="C")
-        self.cell(0, 8, "Informe de Validación de Líneas de Acción", ln=True, align="C")
-        self.ln(8)
-        self.line(10, self.get_y(), 200, self.get_y())
+        if self.page_no() == 1:
+            try:
+                self.image("logo.png", 10, 8, 22)
+            except:
+                pass
+            self.set_font("Arial", "B", 12)
+            self.set_text_color(0, 0, 0)
+            self.cell(0, 6, "Estrategia Sembremos Seguridad", ln=True, align="C")
+            self.cell(0, 8, "Informe de Validación de Líneas de Acción", ln=True, align="C")
+            self.ln(8)
+            self.line(10, self.get_y(), 200, self.get_y())
 
     def footer(self):
         self.set_y(-20)
         self.set_font("Arial", "I", 10)
         self.set_text_color(0, 0, 0)
         self.cell(0, 10, f"Página {self.page_no()} - Modelo Preventivo de Gestión Policial - Estrategia Sembremos Seguridad", align="C")
-
-    def add_section_title(self, title):
-        self.add_page()
-        self.ln(10)
-        self.set_font("Arial", "B", 12)
-        self.cell(0, 10, title, ln=True)
 
     def add_text_field(self, label, content):
         self.set_font("Arial", "", 11)
@@ -67,16 +62,18 @@ class PDFValidacion(FPDF):
             self.cell(0, 8, "Sin observaciones", ln=True)
 
     def add_adjuntos(self, archivos):
+        imagenes = [a for a in archivos if a.name.lower().endswith((".png", ".jpg", ".jpeg"))]
+        pdfs = [a for a in archivos if a.name.lower().endswith(".pdf")]
         if not archivos:
             return
-        self.set_font("Arial", "B", 12)
-        self.cell(0, 10, "Archivos adjuntos", ln=True)
-        self.set_font("Arial", "", 11)
-        for archivo in archivos:
-            nombre = archivo.name
-            if nombre.lower().endswith((".png", ".jpg", ".jpeg")):
+        if imagenes:
+            self.add_page()
+            self.set_y(30)
+            self.set_font("Arial", "B", 12)
+            self.cell(0, 10, "Archivos adjuntos", ln=True)
+            self.set_y(40)
+            for archivo in imagenes:
                 try:
-                    self.add_page()
                     img = Image.open(archivo)
                     w, h = img.size
                     max_w = 120
@@ -85,17 +82,22 @@ class PDFValidacion(FPDF):
                     archivo.seek(0)
                     x_centro = (210 - max_w) / 2
                     self.image(archivo, x=x_centro, w=max_w, h=img_height)
-                    self.ln(5)
+                    self.ln(10)
                 except Exception:
-                    self.cell(0, 8, f"Imagen no soportada: {nombre}", ln=True)
-            elif nombre.lower().endswith(".pdf"):
-                self.cell(0, 8, f"PDF adjunto: {nombre}", ln=True)
+                    self.cell(0, 8, f"Imagen no soportada: {archivo.name}", ln=True)
+        if pdfs:
+            self.add_page()
+            self.set_font("Arial", "B", 12)
+            self.cell(0, 10, "PDFs adjuntos", ln=True)
+            self.set_font("Arial", "", 11)
+            for archivo in pdfs:
+                self.cell(0, 8, f"PDF adjunto: {archivo.name}", ln=True)
 
 def generar_pdf_validacion(datos):
     pdf = PDFValidacion()
     pdf.add_page()
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "Período 2025-2026", ln=True)  # Subtítulo estático
+    pdf.cell(0, 10, "Período 2025-2026", ln=True)
     pdf.add_text_field("Fecha", datos.get("fecha"))
     pdf.add_text_field("Delegación", datos.get("delegacion"))
     pdf.add_text_field("¿Se emitió un oficio de validación?", datos.get("oficio_emitido"))
@@ -164,5 +166,3 @@ if submit:
     pdf_buffer = generar_pdf_validacion(datos)
     nombre_archivo = f"Validacion_Lineas_{delegacion.replace(' ', '_')}_{datetime.datetime.now().strftime('%Y%m%d')}.pdf"
     st.download_button("📥 Descargar Informe PDF", data=pdf_buffer, file_name=nombre_archivo, mime="application/pdf")
-
-
