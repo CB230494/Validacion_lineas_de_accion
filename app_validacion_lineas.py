@@ -64,14 +64,13 @@ class PDFValidacion(FPDF):
     def add_adjuntos(self, archivos):
         imagenes = [a for a in archivos if a.name.lower().endswith((".png", ".jpg", ".jpeg"))]
         pdfs = [a for a in archivos if a.name.lower().endswith(".pdf")]
-        if not archivos:
-            return
+
         if imagenes:
             self.add_page()
-            self.set_y(30)
             self.set_font("Arial", "B", 12)
+            self.set_y(30)
             self.cell(0, 10, "Archivos adjuntos", ln=True)
-            self.set_y(40)
+            self.set_y(90)  # margen amplio
             for archivo in imagenes:
                 try:
                     img = Image.open(archivo)
@@ -81,10 +80,11 @@ class PDFValidacion(FPDF):
                     img_height = h * ratio
                     archivo.seek(0)
                     x_centro = (210 - max_w) / 2
-                    self.image(archivo, x=x_centro, w=max_w, h=img_height)
-                    self.ln(10)
+                    self.image(archivo, x=x_centro, y=self.get_y(), w=max_w, h=img_height)
+                    self.ln(img_height + 10)
                 except Exception:
                     self.cell(0, 8, f"Imagen no soportada: {archivo.name}", ln=True)
+
         if pdfs:
             self.add_page()
             self.set_font("Arial", "B", 12)
@@ -111,7 +111,7 @@ def generar_pdf_validacion(datos):
     buffer.seek(0)
     return buffer
 
-# --- FORMULARIO STREAMLIT ---
+# --- STREAMLIT FORMULARIO ---
 st.title("Validación de Líneas de Acción")
 st.subheader("Período 2025-2026")
 
@@ -166,3 +166,4 @@ if submit:
     pdf_buffer = generar_pdf_validacion(datos)
     nombre_archivo = f"Validacion_Lineas_{delegacion.replace(' ', '_')}_{datetime.datetime.now().strftime('%Y%m%d')}.pdf"
     st.download_button("📥 Descargar Informe PDF", data=pdf_buffer, file_name=nombre_archivo, mime="application/pdf")
+
