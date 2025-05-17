@@ -2,10 +2,23 @@ import streamlit as st
 from fpdf import FPDF
 from io import BytesIO
 import datetime
+import unicodedata
+import re
 
 st.set_page_config(page_title="Validación de Líneas de Acción", layout="centered")
 
-# ==== CLASE PDF USANDO fpdf2 ====
+# === FUNCIÓN PARA LIMPIAR TEXTO ===
+def limpiar_texto(texto):
+    if not texto:
+        return ""
+    if not isinstance(texto, str):
+        texto = str(texto)
+    texto = unicodedata.normalize("NFKD", texto)
+    texto = texto.replace('\r\n', ' ').replace('\n', ' ').replace('\r', ' ')
+    texto = re.sub(r'[^\x00-\x7F]+', '', texto)  # Elimina caracteres no ASCII
+    return texto.strip()
+
+# === CLASE PDF SEGURA ===
 class PDFValidacion(FPDF):
     def header(self):
         self.image('logo.png', 10, 8, 22)
@@ -27,15 +40,15 @@ class PDFValidacion(FPDF):
         self.set_font('Helvetica', 'B', 12)
         self.set_text_color(0, 0, 0)
         self.ln(10)
-        self.cell(0, 10, str(title), ln=True)
+        self.cell(0, 10, limpiar_texto(title), ln=True)
 
     def add_text_field(self, label, content):
         self.set_font('Helvetica', '', 11)
         try:
-            texto = f"{label}: {str(content) if content is not None else ''}"
+            texto = limpiar_texto(f"{label}: {content}")
             self.multi_cell(0, 8, texto)
         except Exception:
-            self.multi_cell(0, 8, f"{label}: [ERROR AL MOSTRAR DATO]")
+            self.multi_cell(0, 8, "ERROR: contenido inválido.")
 
     def add_checkbox_list(self, title, items):
         self.add_section_title(title)
@@ -52,17 +65,17 @@ class PDFValidacion(FPDF):
         self.ln()
         self.set_font('Helvetica', '', 11)
         for item in items:
-            self.cell(70, 8, str(item['elemento']), border=1)
-            self.cell(30, 8, str(item['validado']), border=1, align='C')
-            self.cell(90, 8, str(item['tipo_cambio']), border=1)
+            self.cell(70, 8, limpiar_texto(item['elemento']), border=1)
+            self.cell(30, 8, limpiar_texto(item['validado']), border=1, align='C')
+            self.cell(90, 8, limpiar_texto(item['tipo_cambio']), border=1)
             self.ln()
 
     def add_observaciones(self, texto):
         self.add_section_title("Observaciones")
         self.set_font('Helvetica', '', 11)
-        self.multi_cell(0, 8, str(texto) if texto else "")
+        self.multi_cell(0, 8, limpiar_texto(texto))
 
-# ==== FUNCIÓN PARA GENERAR EL PDF ====
+# === FUNCIÓN PARA GENERAR EL PDF ===
 def generar_pdf_validacion(datos):
     pdf = PDFValidacion()
     pdf.add_page()
@@ -81,7 +94,7 @@ def generar_pdf_validacion(datos):
     buffer.seek(0)
     return buffer
 
-# ==== FORMULARIO EN STREAMLIT ====
+# === FORMULARIO STREAMLIT ===
 st.title("📄 Validación de Líneas de Acción")
 
 with st.form("formulario_validacion"):
@@ -124,7 +137,7 @@ with st.form("formulario_validacion"):
 if submit:
     datos = {
         "periodo": periodo,
-        "fecha": fecha.strftime("%d/%m/%Y") if fecha else "",
+        "fecha": str(fecha.strftime("%d/%m/%Y")) if fecha else "",
         "delegacion": delegacion,
         "participacion": participacion,
         "oficio_emitido": oficio_emitido,
