@@ -5,10 +5,10 @@ import datetime
 
 st.set_page_config(page_title="Validación de Líneas de Acción", layout="centered")
 
-# ---- CLASE PDF ACTUALIZADA CON FPDF2 ----
+# ==== CLASE PDF USANDO fpdf2 ====
 class PDFValidacion(FPDF):
     def header(self):
-        self.image('logo.png', 10, 8, 22)
+        self.image('logo.png', 10, 8, 22)  # Asegúrate de tener logo.png en tu carpeta
         self.set_font('Helvetica', 'B', 12)
         self.set_text_color(0, 0, 0)
         self.cell(0, 5, 'Estrategia Sembremos Seguridad', ln=True, align='C')
@@ -27,11 +27,11 @@ class PDFValidacion(FPDF):
         self.set_font('Helvetica', 'B', 12)
         self.set_text_color(0, 0, 0)
         self.ln(10)
-        self.cell(0, 10, title, ln=True)
+        self.cell(0, 10, str(title), ln=True)
 
     def add_text_field(self, label, content):
         self.set_font('Helvetica', '', 11)
-        self.multi_cell(0, 8, f"{label}: {content}")
+        self.multi_cell(0, 8, f"{label}: {str(content)}")
 
     def add_checkbox_list(self, title, items):
         self.add_section_title(title)
@@ -48,16 +48,17 @@ class PDFValidacion(FPDF):
         self.ln()
         self.set_font('Helvetica', '', 11)
         for item in items:
-            self.cell(70, 8, item['elemento'], border=1)
-            self.cell(30, 8, item['validado'], border=1, align='C')
-            self.cell(90, 8, item['tipo_cambio'], border=1)
+            self.cell(70, 8, str(item['elemento']), border=1)
+            self.cell(30, 8, str(item['validado']), border=1, align='C')
+            self.cell(90, 8, str(item['tipo_cambio']), border=1)
             self.ln()
 
     def add_observaciones(self, texto):
         self.add_section_title("Observaciones")
         self.set_font('Helvetica', '', 11)
-        self.multi_cell(0, 8, texto)
+        self.multi_cell(0, 8, str(texto))
 
+# ==== FUNCIÓN PARA GENERAR EL PDF ====
 def generar_pdf_validacion(datos):
     pdf = PDFValidacion()
     pdf.add_page()
@@ -72,11 +73,11 @@ def generar_pdf_validacion(datos):
     pdf.add_observaciones(datos["observaciones"])
 
     buffer = BytesIO()
-    pdf.output(buffer, 'F')  # Con 'F' para escribir en buffer
+    pdf.output(buffer, 'F')
     buffer.seek(0)
     return buffer
 
-# ---- FORMULARIO EN STREAMLIT ----
+# ==== FORMULARIO EN STREAMLIT ====
 st.title("📄 Validación de Líneas de Acción")
 
 with st.form("formulario_validacion"):
@@ -119,7 +120,7 @@ with st.form("formulario_validacion"):
 if submit:
     datos = {
         "periodo": periodo,
-        "fecha": fecha.strftime("%d/%m/%Y"),
+        "fecha": fecha.strftime("%d/%m/%Y") if fecha else "",
         "delegacion": delegacion,
         "participacion": participacion,
         "oficio_emitido": oficio_emitido,
@@ -138,3 +139,4 @@ if submit:
         file_name=nombre_archivo,
         mime="application/pdf"
     )
+
