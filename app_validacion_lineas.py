@@ -71,7 +71,7 @@ class PDFValidacion(FPDF):
             self.set_font("Arial", "B", 12)
             self.set_y(30)
             self.cell(0, 10, "Archivos adjuntos", ln=True)
-            self.set_y(65)  # posición más arriba
+            self.set_y(55)  # posición más arriba
             for archivo in imagenes:
                 try:
                     img = Image.open(archivo)
